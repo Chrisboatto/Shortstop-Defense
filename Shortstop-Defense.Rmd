@@ -1,0 +1,222 @@
+---
+title: "Shortstop defense"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+require("readxl")
+require("dplyr")
+require("ggplot2")
+require("randomForest")
+require("pROC")
+require("devtools")
+require("corrplot")
+require("stringr")
+library(readxl)
+library(dplyr)
+library(ggplot2)
+library(randomForest)
+library(pROC)
+library(devtools)
+devtools::install_github('skinner927/reprtree')
+library(reprtree)
+library(corrplot)
+library(stringr)
+```
+
+```{r}
+shortstop_defense <- read_xlsx("C:/Users/cboat/OneDrive/Documents/GitHub/Shortstop-Defense/shortstopdefense.xlsx")
+```
+
+```{r}
+sum(is.na(shortstop_defense))
+```
+
+```{r}
+shortstop_defense <- na.omit(shortstop_defense)
+```
+
+```{r}
+sum(is.na(shortstop_defense))
+```
+
+```{r}
+unique(shortstop_defense$playerid)
+```
+
+```{r}
+str(shortstop_defense)
+```
+
+```{r}
+summary(shortstop_defense)
+```
+
+```{r}
+boxplot(shortstop_defense[4:7], col = rainbow(14), main = "Box Plot of Player Metrics", xlab = "Categories", ylab = "Scores")
+
+boxplot(shortstop_defense[17:25], col = rainbow(14), main = "Box Plot of Batted Ball Metrics", xlab = "Categories", ylab = "Scores")
+```
+
+```{r}
+shortstop_defense$player_out_credit <- as.numeric(shortstop_defense$player_out_credit)
+shortstop_defense$is_runnersgoing <- as.numeric(shortstop_defense$is_runnersgoing)
+shortstop_defense$is_bunt <- as.numeric(shortstop_defense$is_bunt)
+shortstop_defense$runner_on_first <- as.numeric(shortstop_defense$runner_on_first)
+shortstop_defense$runner_on_second <- as.numeric(shortstop_defense$runner_on_second)
+shortstop_defense$runner_on_third <- as.numeric(shortstop_defense$runner_on_third)
+```
+
+```{r}
+shortstop_defense <- filter(shortstop_defense, player_x < 0 & fielded_pos == 7 | fielded_pos == 8 | player_x > 0 & fielded_pos == 9 | fielded_pos == 6 | fielded_pos == 5 | fielded_pos == 4 | fielded_pos == 3 | fielded_pos == 2 |fielded_pos == 1)
+shortstop_defense <- filter(shortstop_defense, str_detect(fieldingplay, "6") | fielded_pos == "6")
+```
+
+```{r}
+shortstop_defense <- select(shortstop_defense, -c(pos, trajectory, launch_spin_axis, launch_spin_rate))
+```
+
+```{r}
+shortstop_defense <- mutate(shortstop_defense, Out = case_when(shortstop_defense$eventtype == "field_out" ~ 1, shortstop_defense$eventtype == "single" ~ 0, shortstop_defense$eventtype == "force_out" ~ 1, shortstop_defense$eventtype == "grounded_into_double_play" ~ 1, shortstop_defense$eventtype == "field_error" ~ 0, shortstop_defense$eventtype == "double" ~ 0, shortstop_defense$eventtype == "fielders_choice_out" ~ 1, shortstop_defense$eventtype == "fielders_choice" ~ 0, shortstop_defense$eventtype == "sac_bunt" ~ 1, shortstop_defense$eventtype == "double_play" ~ 1))
+```
+
+```{r}
+shortstop_defense$playerid <- as.character(shortstop_defense$playerid)
+playerID_Freq <- as.data.frame(table(shortstop_defense$playerid))
+playerID_Freq <- rename(playerID_Freq, playerid = Var1)
+playerID_Freq
+```
+
+```{r}
+unique(shortstop_defense$eventtype)
+```
+
+# Outs Above Average for infielders takes the following factors into account.
+
+# • How far the fielder has to go to reach the ball ("the intercept point").
+# • How much time he has to get there.
+# • How far he then is from the base the runner is heading to.
+# • On force plays, how fast the batter is, on average. (A runner's average Sprint Speed is used in the calculation, rather than his Sprint Speed on that particular play. For new players with no data, a league-average -- 27 ft/sec -- score is used; once the player qualifies for the leaderboard, all of his previous plays are re-run.)
+
+```{r}
+set.seed(1985165)
+train <- train <- sample(nrow(shortstop_defense), 0.8*nrow(shortstop_defense), replace = FALSE)
+ssd_train <- shortstop_defense[train,]
+ssd_test <- shortstop_defense[-train,]
+```
+
+```{r}
+ssd_model <- randomForest(Out ~ ., data = ssd_train, ntree = 100)
+```
+
+```{r}
+commandImp <- importance(ssd_model)
+commandImp
+```
+
+```{r}
+commandImp <- as.data.frame(commandImp)
+ggplot(commandImp, aes(IncNodePurity, row.names(commandImp))) + 
+  geom_bar(stat = "identity", width = 0.1, fill = "blue") + 
+  geom_point(shape = 21, size = 3, colour = "blue", fill = "red", stroke = 2) + 
+  labs(title = "Shortstop Defense Importance", x = "Importance", y = "Variable")
+```
+
+```{r}
+ssd_model_tuned <- randomForest(Out ~ player_y + player_x + player_vy + player_vx + player_out_credit + launch_vert_ang + launch_horiz_ang + launch_horiz_ang + landing_location_x + landing_location_y + landing_location_radius + is_runnersgoing + is_bunt + hang_time + is_bunt + fielded_pos + runner_on_first + runner_on_second + runner_on_third, data = ssd_train, ntree = 200, maxnodes = 8)
+```
+
+```{r}
+commandImp_tuned <- importance(ssd_model_tuned)
+commandImp_tuned
+```
+
+```{r}
+commandImp_tuned <- as.data.frame(commandImp_tuned)
+ggplot(commandImp_tuned, aes(IncNodePurity, row.names(commandImp_tuned))) + 
+  geom_bar(stat = "identity", width = 0.1, fill = "blue") + 
+  geom_point(shape = 21, size = 3, colour = "blue", fill = "green", stroke = 2) + 
+  labs(title = "Shortstop Defense Importance Tuned", x = "Importance", y = "Variable")
+```
+
+```{r}
+ssd_pred_train <- predict(ssd_model_tuned, ssd_train, type = "response")
+ssd_pred_test <- predict(ssd_model_tuned, ssd_test, type = "response")
+```
+
+```{r}
+ssd_train <- cbind(ssd_train, ssd_pred_train)
+ssd_test <- cbind(ssd_test, ssd_pred_test)
+```
+
+```{r}
+names(ssd_train)[names(ssd_train) == "ssd_pred_train"] <- "ssd_pred"
+names(ssd_test)[names(ssd_test) == "ssd_pred_test"] <- "ssd_pred"
+```
+
+```{r}
+ssd_full <- rbind(ssd_train, ssd_test)
+```
+
+```{r}
+plot(ssd_model_tuned, col = "green", main = "Shortstop Defense RF Model")
+```
+
+```{r}
+roc_test <- roc(ifelse(ssd_test$Out == "1", "1", "0"), as.numeric(ssd_test$ssd_pred))
+roc_train <- roc(ifelse(ssd_train$Out == "1", "1", "0"), as.numeric(ssd_train$ssd_pred))
+plot(roc_test, col = "blue", main = "Fastball Command ROC Graph")
+lines(roc_train, col = "green")
+```
+
+```{r}
+reprtree:::plot.getTree(ssd_model_tuned, k = 150)
+```
+
+```{r}
+ssd_full$playerid <- as.character(ssd_full$playerid)
+playerID_Freq_pred <- as.data.frame(table(ssd_full$playerid))
+playerID_Freq_pred <- rename(playerID_Freq_pred, playerid = Var1)
+playerID_Freq_pred
+```
+
+```{r}
+ssd_full <- full_join(ssd_full, playerID_Freq_pred, by = "playerid")
+```
+
+```{r}
+ssd_agg <- aggregate(ssd_pred ~ playerid + Freq, data = ssd_full, FUN = mean)
+```
+
+```{r}
+ssd_agg <- mutate(ssd_agg, OAA = round(100*ssd_pred/mean(ssd_pred)-100))
+```
+
+```{r}
+ssd_leaderboard <- select(ssd_agg, c(playerid, Freq, OAA))
+
+ssd_leaderboard <- rename(ssd_leaderboard, "Opporunities" = "Freq")
+
+ssd_leaderboard$OAA <- as.numeric(ssd_leaderboard$OAA)
+
+attach(ssd_leaderboard)
+
+ssd_leaderboard[order(-OAA),]
+```
+
+# 1)
+
+# Some factors that I could have used to obtain a more accurate understanding of OAA that were not in this data set would be, speed of the runner; also having flyballs and line drives in the data set would be key to obtaining a complete understanding.
+
+# The speed of the runner determines how shallow a fielder has to play and how quickly the fielder must transfer the groundball into a throw. The quicker the runner, the less time the fielder has to perform the necessary tasks to get the batter/runner out. The best fielders are able to continuously make plays against speedy runners without losing any range,
+
+# Infielders in general not only field ground balls but flyballs and line drives as well. Adding in flyball and linedrive outcomes to the formula allow for a much more complete understanding of what shortstop's OAA is higher. A larger sample size allows for randomness and any bias to be removed.
+
+
+# 2)
+
+# One interesting thing that I noticed was that the more chances the shortstops had, the closer to the average they became. Regression to the mean really happens in this data set with the shortstops that are among the leaders in opportunities.
