@@ -7,6 +7,17 @@ output: word_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+# Outs Above Average for infielders takes the following factors into account.
+
+# • How far the fielder has to go to reach the ball ("the intercept point").
+# • How much time he has to get there.
+# • How far he then is from the base the runner is heading to.
+# • On force plays, how fast the batter is, on average. (A runner's average Sprint Speed is used in the calculation, rather than his Sprint Speed on that particular play. For new players with no data, a league-average -- 27 ft/sec -- score is used; once the player qualifies for the leaderboard, all of his previous plays are re-run.)
+
+
+
+# Packages needed to complete the assignment
+
 ```{r}
 require("readxl")
 require("dplyr")
@@ -28,25 +39,35 @@ library(corrplot)
 library(stringr)
 ```
 
+# Reading the data into R
+
 ```{r}
 shortstop_defense <- read_xlsx("C:/Users/cboat/OneDrive/Documents/GitHub/Shortstop-Defense/shortstopdefense.xlsx")
 ```
 
+# Detecting amount of NA values in the dataset
+
 ```{r}
 sum(is.na(shortstop_defense))
 ```
+# Omitting NA values
 
 ```{r}
 shortstop_defense <- na.omit(shortstop_defense)
 ```
 
+# Rechecking the NA values
+
 ```{r}
 sum(is.na(shortstop_defense))
 ```
+# Determining the amount of unique shortstop Id's there are in the data set
 
 ```{r}
 unique(shortstop_defense$playerid)
 ```
+
+# Checking structure and summary of the data set
 
 ```{r}
 str(shortstop_defense)
@@ -55,12 +76,14 @@ str(shortstop_defense)
 ```{r}
 summary(shortstop_defense)
 ```
+# Box plots of the Player Metrics are the Batted Ball Metrics
 
 ```{r}
 boxplot(shortstop_defense[4:7], col = rainbow(14), main = "Box Plot of Player Metrics", xlab = "Categories", ylab = "Scores")
 
 boxplot(shortstop_defense[17:25], col = rainbow(14), main = "Box Plot of Batted Ball Metrics", xlab = "Categories", ylab = "Scores")
 ```
+# Converting character attributes into numeric. Turning TRUE to 1 and FALSE to 0
 
 ```{r}
 shortstop_defense$player_out_credit <- as.numeric(shortstop_defense$player_out_credit)
@@ -70,19 +93,30 @@ shortstop_defense$runner_on_first <- as.numeric(shortstop_defense$runner_on_firs
 shortstop_defense$runner_on_second <- as.numeric(shortstop_defense$runner_on_second)
 shortstop_defense$runner_on_third <- as.numeric(shortstop_defense$runner_on_third)
 ```
+# Subset out the times the ball is hit to the opposite side of where the shortstop is positioned. It is not fair to penalize a player for not getting to a batted ball that was hit to the complete opposite end of the field they were positioned in the first place. 
+
+# Then subset out any play that did not involve the SS in any way. 
 
 ```{r}
 shortstop_defense <- filter(shortstop_defense, player_x < 0 & fielded_pos == 7 | fielded_pos == 8 | player_x > 0 & fielded_pos == 9 | fielded_pos == 6 | fielded_pos == 5 | fielded_pos == 4 | fielded_pos == 3 | fielded_pos == 2 |fielded_pos == 1)
 shortstop_defense <- filter(shortstop_defense, str_detect(fieldingplay, "6") | fielded_pos == "6")
 ```
 
+# Removing columns that are redundant, 'pos' and 'trajectory', and columns that are mostly valued at 0 because the information was missing.
 ```{r}
 shortstop_defense <- select(shortstop_defense, -c(pos, trajectory, launch_spin_axis, launch_spin_rate))
 ```
+# Checking the unique event types within the dataset
+
+```{r}
+unique(shortstop_defense$eventtype)
+```
+# Creating a new column 'Out' to resemble if the batted ball resuted in an out or not.
 
 ```{r}
 shortstop_defense <- mutate(shortstop_defense, Out = case_when(shortstop_defense$eventtype == "field_out" ~ 1, shortstop_defense$eventtype == "single" ~ 0, shortstop_defense$eventtype == "force_out" ~ 1, shortstop_defense$eventtype == "grounded_into_double_play" ~ 1, shortstop_defense$eventtype == "field_error" ~ 0, shortstop_defense$eventtype == "double" ~ 0, shortstop_defense$eventtype == "fielders_choice_out" ~ 1, shortstop_defense$eventtype == "fielders_choice" ~ 0, shortstop_defense$eventtype == "sac_bunt" ~ 1, shortstop_defense$eventtype == "double_play" ~ 1))
 ```
+# Creating a Frequency chart to show how often each SS appears in the dataset thus showing the total amount of opportunities each got.
 
 ```{r}
 shortstop_defense$playerid <- as.character(shortstop_defense$playerid)
@@ -90,17 +124,7 @@ playerID_Freq <- as.data.frame(table(shortstop_defense$playerid))
 playerID_Freq <- rename(playerID_Freq, playerid = Var1)
 playerID_Freq
 ```
-
-```{r}
-unique(shortstop_defense$eventtype)
-```
-
-# Outs Above Average for infielders takes the following factors into account.
-
-# • How far the fielder has to go to reach the ball ("the intercept point").
-# • How much time he has to get there.
-# • How far he then is from the base the runner is heading to.
-# • On force plays, how fast the batter is, on average. (A runner's average Sprint Speed is used in the calculation, rather than his Sprint Speed on that particular play. For new players with no data, a league-average -- 27 ft/sec -- score is used; once the player qualifies for the leaderboard, all of his previous plays are re-run.)
+# Creating a Train and Test datasets.
 
 ```{r}
 set.seed(1985165)
@@ -108,10 +132,12 @@ train <- train <- sample(nrow(shortstop_defense), 0.8*nrow(shortstop_defense), r
 ssd_train <- shortstop_defense[train,]
 ssd_test <- shortstop_defense[-train,]
 ```
+# Initial model creation to determine importance of features.
 
 ```{r}
 ssd_model <- randomForest(Out ~ ., data = ssd_train, ntree = 100)
 ```
+# Chart and graph showing the importance of each attribute to the predicted output of 'Out'.
 
 ```{r}
 commandImp <- importance(ssd_model)
@@ -125,10 +151,12 @@ ggplot(commandImp, aes(IncNodePurity, row.names(commandImp))) +
   geom_point(shape = 21, size = 3, colour = "blue", fill = "red", stroke = 2) + 
   labs(title = "Shortstop Defense Importance", x = "Importance", y = "Variable")
 ```
+# Second model removing the attributes with the highest scores to avoid feature takeover.
 
 ```{r}
 ssd_model_tuned <- randomForest(Out ~ player_y + player_x + player_vy + player_vx + player_out_credit + launch_vert_ang + launch_horiz_ang + launch_horiz_ang + landing_location_x + landing_location_y + landing_location_radius + is_runnersgoing + is_bunt + hang_time + is_bunt + fielded_pos + runner_on_first + runner_on_second + runner_on_third, data = ssd_train, ntree = 200, maxnodes = 8)
 ```
+# Creating new impoortance charts and graphs to show how even the new model is at predicting the output.
 
 ```{r}
 commandImp_tuned <- importance(ssd_model_tuned)
@@ -142,6 +170,7 @@ ggplot(commandImp_tuned, aes(IncNodePurity, row.names(commandImp_tuned))) +
   geom_point(shape = 21, size = 3, colour = "blue", fill = "green", stroke = 2) + 
   labs(title = "Shortstop Defense Importance Tuned", x = "Importance", y = "Variable")
 ```
+# With the "response" method I predicted the scores using the model above on the observations from the train and test data sets. I used "response" instead of "class" because I wanted a numerical result for each observation rather than a value being assigned. I then added the predicted scores to their respective data sets as an additional attribute and renamed them for consistency. I bound both the train and test sets back together to create a full data set with predictions.
 
 ```{r}
 ssd_pred_train <- predict(ssd_model_tuned, ssd_train, type = "response")
@@ -161,21 +190,29 @@ names(ssd_test)[names(ssd_test) == "ssd_pred_test"] <- "ssd_pred"
 ```{r}
 ssd_full <- rbind(ssd_train, ssd_test)
 ```
+# The graph below shows how well the model ran regarding the error bias. At around 125 trees the error bias begins to flatline and level off, thus showing a decrease in error bias. The model would have worked well after 40 trees, but 200 was chosen to ensure accuracy.
 
 ```{r}
 plot(ssd_model_tuned, col = "green", main = "Shortstop Defense RF Model")
 ```
+# The Receiver Operating Characteristic (ROC) Curve below shows how well the model performed at all the thresholds. The graph below shows that both the train (red line) and test (blue line) performed extremely well with no deviation. Both lines went straight to the upper left corner, far away from diagonal line thus showing that the model worked really well in removing chance from its output.
 
 ```{r}
 roc_test <- roc(ifelse(ssd_test$Out == "1", "1", "0"), as.numeric(ssd_test$ssd_pred))
 roc_train <- roc(ifelse(ssd_train$Out == "1", "1", "0"), as.numeric(ssd_train$ssd_pred))
-plot(roc_test, col = "blue", main = "Fastball Command ROC Graph")
+plot(roc_test, col = "blue", main = "Shortstop ROC Graph")
 lines(roc_train, col = "green")
 ```
+# The decision tree below is based off of the created reprtree package created by skinner927 Github profile. To import this package into R you will need to use the devtools package. Reprtree allows a data analyst to create a decision tree from the random forest model he creates. 
+
+# The tree below is a depiction of the 100th tree in the "ssd_model_tuned". It shows the flow in which how the model made its decision to determine the predictive score of a strike. The model makes a binary decision at each node or parameter, "Yes" or "No", which then leads to another and another until you reach a final predictive score grouping at the bottom. 
+
+# I had previously commented on the maxnodes parameter being important due to clarity in this tree. Setting the maxnodes parameter to eight will create a depiction of eight result groupings. This allows for the tree to be much easier to read and understand. Without doing so this tree would have been extremely cluttered, with every outcome as a result.  You can chose any tree from your model to depict. Each tree will be slightly different. Therefore, choosing a different tree will result in different results. 
 
 ```{r}
 reprtree:::plot.getTree(ssd_model_tuned, k = 150)
 ```
+# Rechecking the Frequency of shortstops for accuracy.
 
 ```{r}
 ssd_full$playerid <- as.character(ssd_full$playerid)
@@ -183,18 +220,23 @@ playerID_Freq_pred <- as.data.frame(table(ssd_full$playerid))
 playerID_Freq_pred <- rename(playerID_Freq_pred, playerid = Var1)
 playerID_Freq_pred
 ```
+# Using full_join I bound the Frequency data frame to the ssd_full dataset without duplicating the playerid.
 
 ```{r}
 ssd_full <- full_join(ssd_full, playerID_Freq_pred, by = "playerid")
 ```
+# Using the 'aggregate function,' I grouped the data together based off the 'plaeryid' and then formed a summary based off the average of the predicted scores for each play in the data set. The Frequency chart was useful here because each SS had different number of opportunities in the data set. If I were to have used 'sum' in the FUN parameter, it would have automatically gave the SS with the most amount of chances the higher scores. Using 'mean' made it fair amongst all of the shortstops to gain a better understanding of which shortstop fielded best. 
+
 
 ```{r}
 ssd_agg <- aggregate(ssd_pred ~ playerid + Freq, data = ssd_full, FUN = mean)
 ```
+# I then created the attribute Outs Above Average (OAA) using the formula below.
 
 ```{r}
 ssd_agg <- mutate(ssd_agg, OAA = round(100*ssd_pred/mean(ssd_pred)-100))
 ```
+# I then created the leaderboard below showing which shortstop had the highest OAA in the dataset.
 
 ```{r}
 ssd_leaderboard <- select(ssd_agg, c(playerid, Freq, OAA))
