@@ -137,7 +137,7 @@ ssd_test <- shortstop_defense[-train,]
 ```{r}
 ssd_model <- randomForest(Out ~ ., data = ssd_train, ntree = 100)
 ```
-# Chart and graph showing the importance of each attribute to the predicted output of 'Out'.
+# Chart and graph showing the importance of each attribute to the predicted output of 'Out'. As you can see, playtype, eventtype, fieldingplay, player_out_credit and fielded_scoring takeover the model. Removing them would allow for the model to be much more balanced resulting in a truer predictive score. 
 
 ```{r}
 commandImp <- importance(ssd_model)
@@ -154,9 +154,9 @@ ggplot(commandImp, aes(IncNodePurity, row.names(commandImp))) +
 # Second model removing the attributes with the highest scores to avoid feature takeover.
 
 ```{r}
-ssd_model_tuned <- randomForest(Out ~ player_y + player_x + player_vy + player_vx + player_out_credit + launch_vert_ang + launch_horiz_ang + launch_horiz_ang + landing_location_x + landing_location_y + landing_location_radius + is_runnersgoing + is_bunt + hang_time + is_bunt + fielded_pos + runner_on_first + runner_on_second + runner_on_third, data = ssd_train, ntree = 200, maxnodes = 8)
+ssd_model_tuned <- randomForest(Out ~ player_y + player_x + player_vy + player_vx + launch_vert_ang + launch_horiz_ang + launch_horiz_ang + landing_location_x + landing_location_y + landing_location_radius + is_runnersgoing + is_bunt + hang_time + is_bunt + fielded_pos + runner_on_first + runner_on_second + runner_on_third, data = ssd_train, ntree = 200, maxnodes = 8)
 ```
-# Creating new impoortance charts and graphs to show how even the new model is at predicting the output.
+# Creating new impoortance charts and graphs to show how even the new model is at predicting the output. 
 
 ```{r}
 commandImp_tuned <- importance(ssd_model_tuned)
@@ -195,7 +195,7 @@ ssd_full <- rbind(ssd_train, ssd_test)
 ```{r}
 plot(ssd_model_tuned, col = "green", main = "Shortstop Defense RF Model")
 ```
-# The Receiver Operating Characteristic (ROC) Curve below shows how well the model performed at all the thresholds. The graph below shows that both the train (red line) and test (blue line) performed extremely well with no deviation. Both lines went straight to the upper left corner, far away from diagonal line thus showing that the model worked really well in removing chance from its output.
+# The Receiver Operating Characteristic (ROC) Curve below shows how well the model performed at all the thresholds. The graph below shows that both the train (red line) and test (blue line) performed extremely well with no deviation. Both lines went towards the upper left corner on a curve away from diagonal line thus showing that the model worked really well in removing chance from its output.
 
 ```{r}
 roc_test <- roc(ifelse(ssd_test$Out == "1", "1", "0"), as.numeric(ssd_test$ssd_pred))
@@ -212,7 +212,7 @@ lines(roc_train, col = "green")
 ```{r}
 reprtree:::plot.getTree(ssd_model_tuned, k = 150)
 ```
-# Rechecking the Frequency of shortstops for accuracy.
+# Rechecking the Frequency of shortstops for accuracy purposes.
 
 ```{r}
 ssd_full$playerid <- as.character(ssd_full$playerid)
@@ -236,7 +236,7 @@ ssd_agg <- aggregate(ssd_pred ~ playerid + Freq, data = ssd_full, FUN = mean)
 ```{r}
 ssd_agg <- mutate(ssd_agg, OAA = round(100*ssd_pred/mean(ssd_pred)-100))
 ```
-# I then created the leaderboard below showing which shortstop had the highest OAA in the dataset.
+# The leaderboard below showing which shortstop had the highest OAA in the dataset.
 
 ```{r}
 ssd_leaderboard <- select(ssd_agg, c(playerid, Freq, OAA))
@@ -245,20 +245,18 @@ ssd_leaderboard <- rename(ssd_leaderboard, "Opporunities" = "Freq")
 
 ssd_leaderboard$OAA <- as.numeric(ssd_leaderboard$OAA)
 
-attach(ssd_leaderboard)
-
 ssd_leaderboard[order(-OAA),]
 ```
 
-# 1)
+# 1)  In addition to what’s included in the provided dataset, what variables or types of information do you think would be helpful in answering this question more effectively? 
 
-# Some factors that I could have used to obtain a more accurate understanding of OAA that were not in this data set would be, speed of the runner; also having flyballs and line drives in the data set would be key to obtaining a complete understanding.
+#     Some factors that I could have used to obtain a more accurate understanding of OAA that were not in this data set would be, speed of the runner; also having flyballs and line drives in the data set would be key to obtaining a complete understanding.
 
-# The speed of the runner determines how shallow a fielder has to play and how quickly the fielder must transfer the groundball into a throw. The quicker the runner, the less time the fielder has to perform the necessary tasks to get the batter/runner out. The best fielders are able to continuously make plays against speedy runners without losing any range,
+#     The speed of the runner determines how shallow a fielder has to play and how quickly the fielder must transfer the groundball into a throw. The quicker the runner, the less time the fielder has to perform the necessary tasks to get the batter/runner out. The best fielders are able to continuously make plays against speedy runners without losing any range,
 
 # Infielders in general not only field ground balls but flyballs and line drives as well. Adding in flyball and linedrive outcomes to the formula allow for a much more complete understanding of what shortstop's OAA is higher. A larger sample size allows for randomness and any bias to be removed.
 
 
-# 2)
+# 2) Other than the final leaderboard, what is one interesting or surprising finding you made? 
 
-# One interesting thing that I noticed was that the more chances the shortstops had, the closer to the average they became. Regression to the mean really happens in this data set with the shortstops that are among the leaders in opportunities.
+#     One interesting thing that I noticed was that the more chances the shortstops had, the closer to the average they became. Regression to the mean really happens in this data set with the shortstops that are among the leaders in opportunities.
