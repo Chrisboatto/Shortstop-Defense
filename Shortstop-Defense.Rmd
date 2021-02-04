@@ -7,13 +7,14 @@ output: word_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+# The goal of this assignment is to determine which shortstop fielded his position the best. To determined this I used a Random Forest predictive model to create a forest of 200 trees in order to remove any bias thus providing an accurate predictive score. I then created a leaderboard using the metric Outs Above Average to depict which shortstop was best at fielding ground balls.
+
 # Outs Above Average for infielders takes the following factors into account.
 
 # • How far the fielder has to go to reach the ball ("the intercept point").
 # • How much time he has to get there.
 # • How far he then is from the base the runner is heading to.
 # • On force plays, how fast the batter is, on average. (A runner's average Sprint Speed is used in the calculation, rather than his Sprint Speed on that particular play. For new players with no data, a league-average -- 27 ft/sec -- score is used; once the player qualifies for the leaderboard, all of his previous plays are re-run.)
-
 
 
 # Packages needed to complete the assignment
