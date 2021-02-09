@@ -155,7 +155,7 @@ ggplot(commandImp, aes(IncNodePurity, row.names(commandImp))) +
 # Second model removing the attributes with the highest scores to avoid feature takeover.
 
 ```{r}
-ssd_model_tuned <- randomForest(Out ~ player_y + player_x + player_vy + player_vx + launch_vert_ang + launch_horiz_ang + launch_horiz_ang + landing_location_x + landing_location_y + landing_location_radius + is_runnersgoing + is_bunt + hang_time + is_bunt + fielded_pos + runner_on_first + runner_on_second + runner_on_third, data = ssd_train, ntree = 200, maxnodes = 8)
+ssd_model_tuned <- randomForest(Out ~ player_y + player_x + player_vy + player_vx + launch_vert_ang + launch_horiz_ang + launch_speed + landing_location_x + landing_location_y + landing_location_radius + is_runnersgoing + is_bunt + hang_time + is_bunt + fielded_pos + runner_on_first + runner_on_second + runner_on_third, data = ssd_train, ntree = 200, maxnodes = 8)
 ```
 # Creating new impoortance charts and graphs to show how even the new model is at predicting the output. 
 
@@ -246,7 +246,7 @@ ssd_leaderboard <- rename(ssd_leaderboard, "Opporunities" = "Freq")
 
 ssd_leaderboard$OAA <- as.numeric(ssd_leaderboard$OAA)
 
-ssd_leaderboard[order(-OAA),]
+ssd_leaderboard[order(-ssd_leaderboard$OAA),]
 ```
 
 # 1)  In addition to what’s included in the provided dataset, what variables or types of information do you think would be helpful in answering this question more effectively? 
